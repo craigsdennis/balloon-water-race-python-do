@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+python_modules/
+
+# Virtual environments
+.venv/
+.venv-workers/
+
+# Wrangler state
+.wrangler/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class

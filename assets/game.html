@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balloon Water Race</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body id="screen">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="countdown-overlay" class="hidden">
+    <div id="countdown-text">3</div>
+  </div>
+
+  <div class="qr-panel">
+    <div id="qrcode"></div>
+    <p class="scan-text">Scan to play!</p>
+    <p id="player-count">0 players online</p>
+    <p class="start-hint">Press <kbd>SPACE</kbd> to Start</p>
+  </div>
+
+  <div class="scoreboard">
+    <h2>🏆 TOP SHOOTERS 🏆</h2>
+    <ol id="top-players-list">
+      <li class="empty">Waiting for players...</li>
+    </ol>
+    <div class="all-time-header">🌟 HALL OF FAME 🌟</div>
+    <ol id="all-time-list" class="all-time-list">
+      <li class="empty">No records yet</li>
+    </ol>
+  </div>
+
+  <div id="debug-panel" class="hidden">
+    <h3>🧪 TEST MODE</h3>
+    <p class="debug-hint">Press <kbd>D</kbd> to toggle</p>
+    <div class="debug-buttons">
+      <button onclick="testShoot(0)">🔫 Bozo</button>
+      <button onclick="testShoot(1)">🔫 Chuckles</button>
+      <button onclick="testShoot(2)">🔫 Sprinkles</button>
+      <button onclick="testShoot(3)">🔫 Wiggles</button>
+      <button onclick="testShoot(4)">🔫 Puddles</button>
+    </div>
+    <div class="debug-buttons">
+      <button onclick="testPop(0)" class="pop-btn">💥 Pop Bozo</button>
+      <button onclick="testPop(1)" class="pop-btn">💥 Pop Chuckles</button>
+      <button onclick="testPop(2)" class="pop-btn">💥 Pop Sprinkles</button>
+      <button onclick="testPop(3)" class="pop-btn">💥 Pop Wiggles</button>
+      <button onclick="testPop(4)" class="pop-btn">💥 Pop Puddles</button>
+    </div>
+    <div class="debug-buttons">
+      <button onclick="joinFakePlayer()" class="join-btn">👤 Add Fake Player</button>
+      <button onclick="rapidFireAll()" class="rapid-btn">🔥 Rapid Fire All</button>
+      <button onclick="runDiagnostics()" class="sql-btn">🔍 Diagnostics</button>
+    </div>
+    <div id="sql-output" class="sql-output"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+  <script src="/game.js?v=16" defer></script>
+</body>
+</html>

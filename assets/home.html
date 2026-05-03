@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balloon Water Race</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+#home {
+  background: linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 50%, #1a0b2e 100%);
+  color: white;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  overflow: hidden;
+  position: relative;
+}
+#home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(255,0,222,0.15) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(0,210,255,0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+.carnival-story {
+  font-size: 5rem;
+  line-height: 1.4;
+  text-align: center;
+  z-index: 1;
+  animation: float-story 3s ease-in-out infinite;
+}
+@keyframes float-story {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.carnival-title {
+  font-size: 1.3rem;
+  color: #ffd700;
+  text-shadow: 0 0 20px #ffd700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  z-index: 1;
+}
+.carnival-subtitle {
+  font-size: 1rem;
+  color: #ff9e4a;
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.6;
+  z-index: 1;
+}
+#create-btn {
+  padding: 20px 60px;
+  font-size: 1.5rem;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(45deg, #ff00de, #00d2ff);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(255,0,222,0.5), 0 4px 15px rgba(0,0,0,0.3);
+  z-index: 1;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+#create-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 40px rgba(255,0,222,0.7), 0 6px 20px rgba(0,0,0,0.4);
+}
+#create-btn:active {
+  transform: scale(0.98);
+}
+#games-list {
+  margin-top: 10px;
+  text-align: center;
+  z-index: 1;
+}
+#games-list h2 {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.game-link {
+  display: inline-block;
+  padding: 8px 16px;
+  margin: 4px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #00d2ff;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+.game-link:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: #00d2ff;
+  transform: translateY(-2px);
+}
+.confetti-bg {
+  position: absolute;
+  font-size: 2rem;
+  opacity: 0.15;
+  animation: drift 20s linear infinite;
+  pointer-events: none;
+}
+@keyframes drift {
+  from { transform: translateY(-100vh) rotate(0deg); }
+  to { transform: translateY(100vh) rotate(720deg); }
+}
+</style>
+</head>
+<body id="home">
+  <!-- Floating confetti background -->
+  <div class="confetti-bg" style="left:10%;animation-delay:0s">🎊</div>
+  <div class="confetti-bg" style="left:25%;animation-delay:3s">🎈</div>
+  <div class="confetti-bg" style="left:40%;animation-delay:7s">🎪</div>
+  <div class="confetti-bg" style="left:60%;animation-delay:2s">🎉</div>
+  <div class="confetti-bg" style="left:75%;animation-delay:5s">🎊</div>
+  <div class="confetti-bg" style="left:90%;animation-delay:8s">🎈</div>
+
+  <div class="carnival-story">🔫 🤡 🎈 💥 🎊 🎪</div>
+  <div class="carnival-title">Balloon Water Race</div>
+  <div class="carnival-subtitle">
+    Grab your phone. Aim at the clown mouths. Fill the balloons until they POP!<br>
+    Fastest shooter wins the crown. 👑
+  </div>
+  <button id="create-btn">🎪 Start Game 🎪</button>
+  <div id="games-list"></div>
+
+  <script>
+    document.getElementById('create-btn').onclick = async () => {
+      const res = await fetch('/create', {method: 'POST'});
+      const data = await res.json();
+      if (data.game_id) {
+        // Track in localStorage
+        const games = JSON.parse(localStorage.getItem('bwr_games') || '[]');
+        games.push(data.game_id);
+        localStorage.setItem('bwr_games', JSON.stringify(games));
+        window.location.href = `/game/${data.game_id}`;
+      }
+    };
+
+    // Load active games from localStorage
+    const games = JSON.parse(localStorage.getItem('bwr_games') || '[]');
+    const list = document.getElementById('games-list');
+    if (games.length > 0) {
+      list.innerHTML = '<h2>Your Games</h2>';
+      games.slice(-5).forEach(g => {
+        const a = document.createElement('a');
+        a.className = 'game-link';
+        a.href = `/game/${g}`;
+        a.textContent = `🎪 Game ${g}`;
+        list.appendChild(a);
+      });
+    }
+  </script>
+</body>
+</html>

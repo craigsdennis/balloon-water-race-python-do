@@ -1,0 +1,32 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "balloon-water-race",
+	"main": "src/entry.py",
+	"compatibility_date": "2026-05-02",
+	"compatibility_flags": [
+		"python_workers"
+	],
+	"assets": {
+		"directory": "./assets/",
+		"binding": "ASSETS"
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "BALLOON_GAME",
+				"class_name": "BalloonGame"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"BalloonGame"
+			]
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}

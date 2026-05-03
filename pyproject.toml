@@ -1,0 +1,13 @@
+[project]
+name = "balloon-water-race"
+version = "0.1.0"
+description = "Balloon Water Race - A carnival game using Python Workers and Durable Objects"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "workers-py",
+    "workers-runtime-sdk"
+]

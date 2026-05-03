@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Water Gun</title>
+<link rel="stylesheet" href="/style.css?v=2">
+</head>
+<body id="phone">
+  <div id="join-panel">
+    <h1>Balloon Water Race</h1>
+    <input type="text" id="name-input" placeholder="Your name" maxlength="12">
+    <button id="join-btn">Join Game</button>
+  </div>
+
+  <div id="game-panel" class="hidden">
+    <div class="camera-wrap">
+      <video id="camera" autoplay playsinline muted></video>
+    </div>
+
+    <div class="crosshair"></div>
+
+    <div class="top-bar">
+      <span id="player-name" class="name">Player</span>
+      <span id="player-score" class="score">0</span>
+    </div>
+
+    <div id="target-bar">Waiting for game...</div>
+
+    <div id="lock-indicator">Aim at a clown mouth...</div>
+
+    <div id="zoom-controls" class="hidden">
+      <button id="zoom-in" class="zoom-btn">🔎+</button>
+      <button id="zoom-out" class="zoom-btn">🔎-</button>
+    </div>
+  </div>
+
+  <script src="/player.js?v=9"></script>
+</body>
+</html>
