@@ -527,5 +527,22 @@ function displayDiagnostics(data) {
     html += '\nNo rows in high_scores';
   }
 
+  // Show row introspection debug for the first few rows
+  if (data.row_debug && data.row_debug.length > 0) {
+    html += '\n\n🔍 ROW DEBUG (first 3 rows):\n';
+    data.row_debug.forEach(rd => {
+      html += `\n--- ${rd.label} ---\n`;
+      html += `type: ${rd.type}\n`;
+      html += `repr: ${rd.repr}\n`;
+      html += 'access results:\n';
+      const access = rd.access || {};
+      Object.entries(access).forEach(([k, v]) => {
+        const valStr = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        const short = valStr.length > 60 ? valStr.substring(0, 60) + '...' : valStr;
+        html += `  ${k}: ${short}\n`;
+      });
+    });
+  }
+
   output.textContent = html;
 }
