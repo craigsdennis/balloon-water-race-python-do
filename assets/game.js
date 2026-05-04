@@ -42,6 +42,7 @@ ws.onmessage = (ev) => {
     spawnConfetti(getClownX(idx), getClownY() - 100, CLOWNS[idx].color);
     shakeOffsets[idx] = {timer: 30};
   } else if (msg.type === 'diagnostic') {
+    console.log('🔬 DIAGNOSTIC RAW:', msg.data);
     displayDiagnostics(msg.data);
   }
 };
