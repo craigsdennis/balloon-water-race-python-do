@@ -18,88 +18,18 @@ def default_state():
     return {"clowns": [dict(c) for c in CLOWNS], "players": {}, "game_active": False}
 
 
-def _debug_row_structure(row, label="row"):
-    """Introspect a SQLite row to figure out how to access its values.
-    Returns a dict with debugging info for the diagnostic endpoint."""
-    info = {
-        "label": label,
-        "type": str(type(row)),
-        "repr": repr(row)[:200],
-    }
-    # Try various access patterns and record which ones work
-    access = {}
-    try:
-        access["get_0"] = row.get(0)
-    except Exception as e:
-        access["get_0_error"] = str(e)
-    try:
-        access["get_1"] = row.get(1)
-    except Exception as e:
-        access["get_1_error"] = str(e)
-    try:
-        access["get_name"] = row.get("name")
-    except Exception as e:
-        access["get_name_error"] = str(e)
-    try:
-        access["get_score"] = row.get("score")
-    except Exception as e:
-        access["get_score_error"] = str(e)
-    try:
-        access["keys"] = list(row.keys()) if hasattr(row, "keys") else "no keys()"
-    except Exception as e:
-        access["keys_error"] = str(e)
-    try:
-        access["values"] = list(row.values()) if hasattr(row, "values") else "no values()"
-    except Exception as e:
-        access["values_error"] = str(e)
-    try:
-        access["index_0"] = row[0]
-    except Exception as e:
-        access["index_0_error"] = str(e)
-    try:
-        access["index_1"] = row[1]
-    except Exception as e:
-        access["index_1_error"] = str(e)
-    try:
-        access["dir"] = [d for d in dir(row) if not d.startswith("_")]
-    except Exception as e:
-        access["dir_error"] = str(e)
-    info["access"] = access
-    return info
-
-
-def _get_row_value(row, col_name, col_idx):
-    """Extract a value from a SQLite row, trying the most common patterns.
-    This centralizes the fallback logic so we can easily adjust once we
-    know what the runtime actually returns."""
-    # Pattern 1: dict-style by column name (documented in AGENTS.md)
-    val = row.get(col_name)
-    if val is not None:
-        return val
-    # Pattern 2: dict-style by numeric index
-    val = row.get(col_idx)
-    if val is not None:
-        return val
-    # Pattern 3: sequence-style by index
-    try:
-        val = row[col_idx]
-        if val is not None:
-            return val
-    except (TypeError, IndexError, KeyError):
-        pass
-    # Pattern 4: grab from values() iterator
-    try:
-        vals = list(row.values())
-        if len(vals) > col_idx:
-            return vals[col_idx]
-    except Exception:
-        pass
-    return None
+def _get_row_value(row, col_name):
+    """Extract a value from a SQLite row.
+    
+    SQLite cursors converted via to_py() return plain Python dicts
+    with column names as string keys. Verified via /debug/sql endpoint.
+    """
+    return row.get(col_name)
 
 
 def _sql_rows(cursor):
     """Convert a SQLite cursor to a list of Python dicts.
-    Uses js.Array.from(cursor) then to_py() as documented."""
+    Uses js.Array.from(cursor) then to_py() as documented in AGENTS.md."""
     js_array = getattr(js.Array, 'from')(cursor)
     return js_array.to_py()
 
@@ -146,7 +76,7 @@ class BalloonGame(DurableObject):
                 )
                 existing_score = 0
                 if rows:
-                    val = _get_row_value(rows[0], "score", 0)
+                    val = _get_row_value(rows[0], "score")
                     if val is not None:
                         existing_score = int(val)
                 if existing_score > 0:
@@ -174,8 +104,8 @@ class BalloonGame(DurableObject):
             )
             results = []
             for row in rows:
-                name_val = _get_row_value(row, "name", 0)
-                score_val = _get_row_value(row, "score", 1)
+                name_val = _get_row_value(row, "name")
+                score_val = _get_row_value(row, "score")
                 if name_val is not None and score_val is not None:
                     results.append({"name": str(name_val), "score": int(score_val)})
             return results
@@ -255,7 +185,7 @@ class BalloonGame(DurableObject):
             # Step 4: Inspect the first row
             if py_rows and len(py_rows) > 0:
                 row = py_rows[0]
-                result["row"] = _debug_row_structure(row, label="test_row")
+                result["row"] = {"type": str(type(row)), "repr": repr(row)[:200], "keys": list(row.keys())}
             else:
                 result["row"] = None
 
@@ -343,7 +273,7 @@ class BalloonGame(DurableObject):
                     await self._broadcast_state()
 
         elif action == "diagnostic":
-            diag = {"tables": {}, "errors": [], "row_debug": []}
+            diag = {"tables": {}, "errors": []}
             
             try:
                 self.ctx.storage.sql.exec("""
@@ -356,15 +286,6 @@ class BalloonGame(DurableObject):
             except Exception as e:
                 diag["errors"].append(f"Create table: {type(e).__name__}: {str(e)}")
 
-            # Insert a test row so we have something to introspect
-            try:
-                self.ctx.storage.sql.exec(
-                    "INSERT OR REPLACE INTO high_scores (name, score, last_updated) VALUES (?, ?, ?)",
-                    "__TEST__", 42, Date.now()
-                )
-            except Exception as e:
-                diag["errors"].append(f"Test insert: {type(e).__name__}: {str(e)}")
-
             try:
                 rows = _sql_rows(
                     self.ctx.storage.sql.exec(
@@ -372,7 +293,7 @@ class BalloonGame(DurableObject):
                     )
                 )
                 if rows:
-                    val = _get_row_value(rows[0], "name", 0)
+                    val = _get_row_value(rows[0], "name")
                     diag["tables"]["exists"] = [str(val)] if val else []
                 else:
                     diag["tables"]["exists"] = []
@@ -384,7 +305,7 @@ class BalloonGame(DurableObject):
                     self.ctx.storage.sql.exec("SELECT COUNT(*) FROM high_scores")
                 )
                 if rows:
-                    val = _get_row_value(rows[0], "COUNT(*)", 0)
+                    val = _get_row_value(rows[0], "COUNT(*)")
                     diag["tables"]["count"] = int(val) if val else 0
             except Exception as e:
                 diag["errors"].append(f"Count: {type(e).__name__}: {str(e)}")
@@ -396,12 +317,9 @@ class BalloonGame(DurableObject):
                     )
                 )
                 result_rows = []
-                for i, row in enumerate(rows):
-                    # Introspect the first few rows for debugging
-                    if i < 3:
-                        diag["row_debug"].append(_debug_row_structure(row, label=f"row_{i}"))
-                    name_val = _get_row_value(row, "name", 0)
-                    score_val = _get_row_value(row, "score", 1)
+                for row in rows:
+                    name_val = _get_row_value(row, "name")
+                    score_val = _get_row_value(row, "score")
                     result_rows.append({
                         "name": str(name_val) if name_val else "?",
                         "score": int(score_val) if score_val else 0
