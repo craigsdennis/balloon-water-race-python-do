@@ -18,6 +18,92 @@ def default_state():
     return {"clowns": [dict(c) for c in CLOWNS], "players": {}, "game_active": False}
 
 
+def _debug_row_structure(row, label="row"):
+    """Introspect a SQLite row to figure out how to access its values.
+    Returns a dict with debugging info for the diagnostic endpoint."""
+    info = {
+        "label": label,
+        "type": str(type(row)),
+        "repr": repr(row)[:200],
+    }
+    # Try various access patterns and record which ones work
+    access = {}
+    try:
+        access["get_0"] = row.get(0)
+    except Exception as e:
+        access["get_0_error"] = str(e)
+    try:
+        access["get_1"] = row.get(1)
+    except Exception as e:
+        access["get_1_error"] = str(e)
+    try:
+        access["get_name"] = row.get("name")
+    except Exception as e:
+        access["get_name_error"] = str(e)
+    try:
+        access["get_score"] = row.get("score")
+    except Exception as e:
+        access["get_score_error"] = str(e)
+    try:
+        access["keys"] = list(row.keys()) if hasattr(row, "keys") else "no keys()"
+    except Exception as e:
+        access["keys_error"] = str(e)
+    try:
+        access["values"] = list(row.values()) if hasattr(row, "values") else "no values()"
+    except Exception as e:
+        access["values_error"] = str(e)
+    try:
+        access["index_0"] = row[0]
+    except Exception as e:
+        access["index_0_error"] = str(e)
+    try:
+        access["index_1"] = row[1]
+    except Exception as e:
+        access["index_1_error"] = str(e)
+    try:
+        access["dir"] = [d for d in dir(row) if not d.startswith("_")]
+    except Exception as e:
+        access["dir_error"] = str(e)
+    info["access"] = access
+    return info
+
+
+def _get_row_value(row, col_name, col_idx):
+    """Extract a value from a SQLite row, trying the most common patterns.
+    This centralizes the fallback logic so we can easily adjust once we
+    know what the runtime actually returns."""
+    # Pattern 1: dict-style by column name (documented in AGENTS.md)
+    val = row.get(col_name)
+    if val is not None:
+        return val
+    # Pattern 2: dict-style by numeric index
+    val = row.get(col_idx)
+    if val is not None:
+        return val
+    # Pattern 3: sequence-style by index
+    try:
+        val = row[col_idx]
+        if val is not None:
+            return val
+    except (TypeError, IndexError, KeyError):
+        pass
+    # Pattern 4: grab from values() iterator
+    try:
+        vals = list(row.values())
+        if len(vals) > col_idx:
+            return vals[col_idx]
+    except Exception:
+        pass
+    return None
+
+
+def _sql_rows(cursor):
+    """Convert a SQLite cursor to a list of Python dicts.
+    Uses js.Array.from(cursor) then to_py() as documented."""
+    js_array = getattr(js.Array, 'from')(cursor)
+    return js_array.to_py()
+
+
 class BalloonGame(DurableObject):
     def __init__(self, ctx, env):
         super().__init__(ctx, env)
@@ -53,20 +139,14 @@ class BalloonGame(DurableObject):
                 score = p.get("score", 0)
                 if score <= 0:
                     continue
-                cursor = self.ctx.storage.sql.exec(
-                    "SELECT score FROM high_scores WHERE name = ?",
-                    name
+                rows = _sql_rows(
+                    self.ctx.storage.sql.exec(
+                        "SELECT score FROM high_scores WHERE name = ?", name
+                    )
                 )
-                js_array = getattr(js.Array, 'from')(cursor)
-                py_rows = js_array.to_py()
                 existing_score = 0
-                if py_rows and len(py_rows) > 0:
-                    row = py_rows[0]
-                    val = row.get(0)
-                    if val is None:
-                        val = row.get("score")
-                    if val is None and len(row) > 0:
-                        val = list(row.values())[0] if hasattr(row, 'values') else row[0]
+                if rows:
+                    val = _get_row_value(rows[0], "score", 0)
                     if val is not None:
                         existing_score = int(val)
                 if existing_score > 0:
@@ -86,25 +166,16 @@ class BalloonGame(DurableObject):
     def _get_high_scores_sqlite(self, limit=10):
         """Query top all-time scores from SQLite"""
         try:
-            cursor = self.ctx.storage.sql.exec(
-                "SELECT name, score FROM high_scores ORDER BY score DESC LIMIT ?",
-                limit
+            rows = _sql_rows(
+                self.ctx.storage.sql.exec(
+                    "SELECT name, score FROM high_scores ORDER BY score DESC LIMIT ?",
+                    limit
+                )
             )
-            js_array = getattr(js.Array, 'from')(cursor)
-            py_rows = js_array.to_py()
             results = []
-            for row in py_rows:
-                name_val = row.get(0)
-                if name_val is None:
-                    name_val = row.get("name")
-                if name_val is None and len(row) > 0:
-                    name_val = list(row.values())[0] if hasattr(row, 'values') else row[0]
-                score_val = row.get(1)
-                if score_val is None:
-                    score_val = row.get("score")
-                if score_val is None and len(row) > 1:
-                    vals = list(row.values()) if hasattr(row, 'values') else row
-                    score_val = vals[1]
+            for row in rows:
+                name_val = _get_row_value(row, "name", 0)
+                score_val = _get_row_value(row, "score", 1)
                 if name_val is not None and score_val is not None:
                     results.append({"name": str(name_val), "score": int(score_val)})
             return results
@@ -203,7 +274,7 @@ class BalloonGame(DurableObject):
                     await self._broadcast_state()
 
         elif action == "diagnostic":
-            diag = {"tables": {}, "errors": []}
+            diag = {"tables": {}, "errors": [], "row_debug": []}
             
             try:
                 self.ctx.storage.sql.exec("""
@@ -216,19 +287,23 @@ class BalloonGame(DurableObject):
             except Exception as e:
                 diag["errors"].append(f"Create table: {type(e).__name__}: {str(e)}")
 
+            # Insert a test row so we have something to introspect
             try:
-                cursor = self.ctx.storage.sql.exec(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='high_scores'"
+                self.ctx.storage.sql.exec(
+                    "INSERT OR REPLACE INTO high_scores (name, score, last_updated) VALUES (?, ?, ?)",
+                    "__TEST__", 42, Date.now()
                 )
-                js_array = getattr(js.Array, 'from')(cursor)
-                py_rows = js_array.to_py()
-                if py_rows and len(py_rows) > 0:
-                    val = py_rows[0].get("name")
-                    if val is None:
-                        val = py_rows[0].get(0)
-                    if val is None:
-                        vals = list(py_rows[0].values())
-                        val = vals[0] if vals else None
+            except Exception as e:
+                diag["errors"].append(f"Test insert: {type(e).__name__}: {str(e)}")
+
+            try:
+                rows = _sql_rows(
+                    self.ctx.storage.sql.exec(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='high_scores'"
+                    )
+                )
+                if rows:
+                    val = _get_row_value(rows[0], "name", 0)
                     diag["tables"]["exists"] = [str(val)] if val else []
                 else:
                     diag["tables"]["exists"] = []
@@ -236,38 +311,28 @@ class BalloonGame(DurableObject):
                 diag["errors"].append(f"Table check: {type(e).__name__}: {str(e)}")
 
             try:
-                cursor = self.ctx.storage.sql.exec("SELECT COUNT(*) FROM high_scores")
-                js_array = getattr(js.Array, 'from')(cursor)
-                py_rows = js_array.to_py()
-                if py_rows and len(py_rows) > 0:
-                    val = py_rows[0].get("COUNT(*)")
-                    if val is None:
-                        val = py_rows[0].get(0)
-                    if val is None:
-                        vals = list(py_rows[0].values())
-                        val = vals[0] if vals else 0
+                rows = _sql_rows(
+                    self.ctx.storage.sql.exec("SELECT COUNT(*) FROM high_scores")
+                )
+                if rows:
+                    val = _get_row_value(rows[0], "COUNT(*)", 0)
                     diag["tables"]["count"] = int(val) if val else 0
             except Exception as e:
                 diag["errors"].append(f"Count: {type(e).__name__}: {str(e)}")
 
             try:
-                cursor = self.ctx.storage.sql.exec("SELECT name, score FROM high_scores ORDER BY score DESC")
-                js_array = getattr(js.Array, 'from')(cursor)
-                py_rows = js_array.to_py()
+                rows = _sql_rows(
+                    self.ctx.storage.sql.exec(
+                        "SELECT name, score FROM high_scores ORDER BY score DESC"
+                    )
+                )
                 result_rows = []
-                for row in py_rows:
-                    name_val = row.get("name")
-                    if name_val is None:
-                        name_val = row.get(0)
-                    if name_val is None:
-                        vals = list(row.values())
-                        name_val = vals[0] if vals else None
-                    score_val = row.get("score")
-                    if score_val is None:
-                        score_val = row.get(1)
-                    if score_val is None:
-                        vals = list(row.values())
-                        score_val = vals[1] if len(vals) > 1 else None
+                for i, row in enumerate(rows):
+                    # Introspect the first few rows for debugging
+                    if i < 3:
+                        diag["row_debug"].append(_debug_row_structure(row, label=f"row_{i}"))
+                    name_val = _get_row_value(row, "name", 0)
+                    score_val = _get_row_value(row, "score", 1)
                     result_rows.append({
                         "name": str(name_val) if name_val else "?",
                         "score": int(score_val) if score_val else 0
