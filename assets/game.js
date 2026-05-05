@@ -17,6 +17,12 @@ let particles = [];
 let shakeOffsets = {};
 let explosions = {};
 
+// Per-clown mechanical wobble state (phase & speed are unique per clown)
+const clownWobbles = CLOWNS.map(() => ({
+  phase: Math.random() * Math.PI * 2,
+  speed: 0.6 + Math.random() * 1.2
+}));
+
 // Canvas setup
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
@@ -53,6 +59,18 @@ function getClownX(index) {
 }
 function getClownY() {
   return canvas.height * 0.45;
+}
+
+function getClownWobble(i, fillPct) {
+  if (fillPct < 0.5) return 0;
+  const intensity = (fillPct - 0.5) * 2; // 0 at 50%, 1 at 100%
+  const maxWobble = 15 * intensity;      // max 15px vertical drift
+  const w = clownWobbles[i];
+  const t = Date.now() / 1000;
+  // Slow mechanical oscillation + micro-jerks for "servo" feel
+  const base = Math.sin(t * w.speed + w.phase) * maxWobble;
+  const jerk = Math.sin(t * w.speed * 3.7 + w.phase) * (2.5 * intensity);
+  return base + jerk;
 }
 
 function drawOrangeBalloon(ctx) {
@@ -348,7 +366,8 @@ function draw() {
       const fillPct = clownData.popped ? 1.0 : (clownData.fill / clownData.max_fill);
       if (explosions[i] && explosions[i].timer <= 0) delete explosions[i];
       const shooterCount = activeShooters[i] || 0;
-      drawClown(c, getClownX(i), getClownY(), fillPct, clownData.popped, shooterCount);
+      const wobbleY = getClownWobble(i, fillPct);
+      drawClown(c, getClownX(i), getClownY() + wobbleY, fillPct, clownData.popped, shooterCount);
     });
   } else {
     CLOWNS.forEach((c, i) => {
