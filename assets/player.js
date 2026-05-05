@@ -35,8 +35,15 @@ joinBtn.onclick = () => {
   const name = nameInput.value.trim();
   if (!name) return;
   myName = name;
+  localStorage.setItem('bwr_name', name);
   ws.send(JSON.stringify({action:'join', name}));
 };
+
+// Pre-fill saved name
+const savedName = localStorage.getItem('bwr_name');
+if (savedName) {
+  nameInput.value = savedName;
+}
 
 // Start camera immediately so players can practice aiming while waiting
 startCamera();
