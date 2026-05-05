@@ -231,3 +231,24 @@ function stopShooting() {
     shootInterval = null;
   }
 }
+
+// ==================== iOS "Add to Home Screen" prompt ====================
+(function initInstallBanner() {
+  // Only show on iOS Safari (not Chrome, not standalone, not dismissed)
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isStandalone = navigator.standalone === true;
+  const dismissed = localStorage.getItem('bwr_install_dismissed');
+
+  if (!isIos || isStandalone || dismissed) return;
+
+  const banner = document.getElementById('ios-install-banner');
+  const dismissBtn = document.getElementById('ios-install-dismiss');
+  if (!banner || !dismissBtn) return;
+
+  banner.classList.remove('hidden');
+
+  dismissBtn.addEventListener('click', () => {
+    banner.classList.add('hidden');
+    localStorage.setItem('bwr_install_dismissed', '1');
+  });
+})();

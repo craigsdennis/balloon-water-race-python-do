@@ -1,0 +1,15 @@
+{
+  "name": "Balloon Water Race",
+  "short_name": "Water Race",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a0b2e",
+  "theme_color": "#ff7b00",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
