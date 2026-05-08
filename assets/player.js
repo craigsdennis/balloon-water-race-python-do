@@ -101,6 +101,9 @@ ws.onmessage = (ev) => {
     // Show +100 bonus flash if this player shot the winning clown
     if (msg.bonuses && myName && msg.bonuses[myName]) {
       showBonusFlash(msg.bonuses[myName]);
+      // Update score display immediately with bonus
+      myScore += msg.bonuses[myName];
+      if (scoreDisplay) scoreDisplay.textContent = myScore;
     }
   }
 };
