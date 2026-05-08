@@ -208,7 +208,13 @@ class BalloonGame(DurableObject):
         if action == "join":
             name = data.get("name", "Anonymous")
             state = await self._get_state()
-            state["players"][sid] = {"name": name, "score": 0, "last_target": None, "last_shot_time": 0}
+            state["players"][sid] = {
+                "name": name,
+                "score": 0,
+                "last_target": None,
+                "last_shot_time": 0,
+                "clowns_shot": [],
+            }
             await self._save_state(state)
             ws.send(json.dumps({"type": "joined", "name": name, "session_id": sid}))
             await self._broadcast_state()
@@ -220,8 +226,9 @@ class BalloonGame(DurableObject):
                 c["fill"] = 0
                 c["popped"] = False
             state["game_active"] = True
-            # Clear winner highlights by resetting all last_shot_time
+            # Clear per-round tracking for all players
             for p in state.get("players", {}).values():
+                p["clowns_shot"] = []
                 p["last_target"] = None
                 p["last_shot_time"] = 0
             await self._save_state(state)
@@ -245,12 +252,22 @@ class BalloonGame(DurableObject):
                 player["score"] += 1
                 player["last_target"] = clown_id
                 player["last_shot_time"] = Date.now()
+                # Track which clowns this player has shot this round
+                if clown_id not in player.get("clowns_shot", []):
+                    player["clowns_shot"].append(clown_id)
                 clowns[clown_id]["fill"] += 1
 
                 if clowns[clown_id]["fill"] >= clowns[clown_id]["max_fill"]:
                     clowns[clown_id]["popped"] = True
                     state["game_active"] = False  # Game over when balloon pops
                     await self._save_state(state)
+
+                    # Award +100 bonus to anyone who shot the winning clown
+                    bonuses = {}
+                    for p in state["players"].values():
+                        if clown_id in p.get("clowns_shot", []):
+                            p["score"] += 100
+                            bonuses[p["name"]] = 100
 
                     # Save to SQLite! Scores persist even after players leave
                     self._save_high_scores_sqlite(state["players"])
@@ -264,6 +281,7 @@ class BalloonGame(DurableObject):
                                 "popped_by": player["name"],
                                 "leaderboard": self._top_3(state),
                                 "all_time": all_time,
+                                "bonuses": bonuses,
                             }
                         )
                     )

@@ -16,6 +16,7 @@ let allTimeScores = [];
 let particles = [];
 let shakeOffsets = {};
 let explosions = {};
+let bonusTexts = [];
 
 // Per-clown mechanical wobble state (phase & speed are unique per clown)
 const clownWobbles = CLOWNS.map(() => ({
@@ -47,6 +48,18 @@ ws.onmessage = (ev) => {
     explosions[idx] = {timer: 30}; // 0.5s of 💥
     spawnConfetti(getClownX(idx), getClownY() - 100, CLOWNS[idx].color);
     shakeOffsets[idx] = {timer: 30};
+    // Show bonus text for anyone who shot the winning clown
+    if (msg.bonuses) {
+      Object.entries(msg.bonuses).forEach(([name, amount], i) => {
+        bonusTexts.push({
+          x: getClownX(idx),
+          y: getClownY() - 160 - (i * 30),
+          text: `+${amount} ${name}`,
+          timer: 90,
+          maxTimer: 90,
+        });
+      });
+    }
   } else if (msg.type === 'diagnostic') {
     console.log('🔬 DIAGNOSTIC RAW:', msg.data);
     displayDiagnostics(msg.data);
@@ -62,14 +75,24 @@ function getClownY() {
 }
 
 function getClownWobble(i, fillPct) {
-  if (fillPct < 0.5) return 0;
-  const intensity = (fillPct - 0.5) * 2; // 0 at 50%, 1 at 100%
-  const maxWobble = 15 * intensity;      // max 15px vertical drift
+  if (fillPct < 1/3) return 0;
+
   const w = clownWobbles[i];
   const t = Date.now() / 1000;
-  // Slow mechanical oscillation + micro-jerks for "servo" feel
+
+  let maxWobble;
+  if (fillPct < 2/3) {
+    // First tier: small mechanical wobble, 0-8px
+    const tierProgress = (fillPct - 1/3) / (1/3);
+    maxWobble = 8 * tierProgress;
+  } else {
+    // Second tier: bigger wobble, 8-20px
+    const tierProgress = (fillPct - 2/3) / (1/3);
+    maxWobble = 8 + 12 * tierProgress;
+  }
+
   const base = Math.sin(t * w.speed + w.phase) * maxWobble;
-  const jerk = Math.sin(t * w.speed * 3.7 + w.phase) * (2.5 * intensity);
+  const jerk = Math.sin(t * w.speed * 3.7 + w.phase) * (maxWobble * 0.15);
   return base + jerk;
 }
 
@@ -167,6 +190,30 @@ function drawParticles() {
       ctx.arc(p.x, p.y, (p.size || 4) * p.life, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function updateBonusTexts() {
+  for (let i = bonusTexts.length - 1; i >= 0; i--) {
+    const b = bonusTexts[i];
+    b.timer--;
+    b.y -= 0.5; // float upward
+    if (b.timer <= 0) bonusTexts.splice(i, 1);
+  }
+}
+
+function drawBonusTexts() {
+  for (const b of bonusTexts) {
+    const progress = b.timer / b.maxTimer;
+    ctx.globalAlpha = progress;
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 15;
+    ctx.fillText(b.text, b.x, b.y);
+    ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
 }
@@ -377,6 +424,9 @@ function draw() {
 
   updateParticles();
   drawParticles();
+
+  updateBonusTexts();
+  drawBonusTexts();
 
   requestAnimationFrame(draw);
 }
