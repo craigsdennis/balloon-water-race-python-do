@@ -17,6 +17,7 @@ let particles = [];
 let shakeOffsets = {};
 let explosions = {};
 let bonusTexts = [];
+let latestBonuses = {}; // name -> amount, cleared on new game
 
 // Per-clown mechanical wobble state (phase & speed are unique per clown)
 const clownWobbles = CLOWNS.map(() => ({
@@ -42,6 +43,10 @@ ws.onmessage = (ev) => {
     gameState = msg.data;
     activeShooters = msg.active_shooters || [];
     allTimeScores = msg.all_time || [];
+    // Clear bonus badges when a new round starts
+    if (msg.data.game_active && !msg.data.clowns.some(c => c.popped)) {
+      latestBonuses = {};
+    }
     updatePlayerCount();
   } else if (msg.type === 'balloon_popped') {
     const idx = msg.clown_id;
@@ -50,6 +55,7 @@ ws.onmessage = (ev) => {
     shakeOffsets[idx] = {timer: 30};
     // Show bonus text for anyone who shot the winning clown
     if (msg.bonuses) {
+      latestBonuses = msg.bonuses;
       Object.entries(msg.bonuses).forEach(([name, amount], i) => {
         bonusTexts.push({
           x: getClownX(idx),
@@ -333,7 +339,9 @@ function updateScoreboard() {
   } else {
     list.innerHTML = players.map((p, i) => {
       const rankColor = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#fff';
-      return `<li><span class="name" style="color:${rankColor}">${p.name}</span><span class="score">${p.score}</span></li>`;
+      const bonus = latestBonuses[p.name];
+      const bonusTag = bonus ? ` <span class="bonus-tag">+${bonus}</span>` : '';
+      return `<li><span class="name" style="color:${rankColor}">${p.name}</span><span class="score">${p.score}${bonusTag}</span></li>`;
     }).join('');
   }
 
