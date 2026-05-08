@@ -97,8 +97,35 @@ ws.onmessage = (ev) => {
       myScore = msg.data.players[mySid].score;
       scoreDisplay.textContent = myScore;
     }
+  } else if (msg.type === 'balloon_popped') {
+    // Show +100 bonus flash if this player shot the winning clown
+    if (msg.bonuses && myName && msg.bonuses[myName]) {
+      showBonusFlash(msg.bonuses[myName]);
+    }
   }
 };
+
+function showBonusFlash(amount) {
+  let flash = document.getElementById('bonus-flash');
+  if (!flash) {
+    flash = document.createElement('div');
+    flash.id = 'bonus-flash';
+    flash.style.cssText = `
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    `;
+    document.body.appendChild(flash);
+  }
+  flash.innerHTML = `<div style="
+    font-size: 3rem; font-weight: bold; color: #ffd700;
+    text-shadow: 0 0 20px #ffd700, 0 0 40px #ff7b00;
+    animation: bonus-pop 1.5s ease-out forwards;
+  ">+${amount} BONUS!</div>`;
+
+  // Remove after animation
+  setTimeout(() => { if (flash) flash.innerHTML = ''; }, 1500);
+}
 
 async function startCamera() {
   console.log('startCamera called');
