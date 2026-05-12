@@ -1,5 +1,5 @@
 const CLOWNS = [
-  {id:0, name:"Bozo", color:"#ff8200"},
+  {id:0, name:"Bozo", color:"#ff1493"},
   {id:1, name:"Chuckles", color:"#00ff00"},
   {id:2, name:"Sprinkles", color:"#00c8ff"},
   {id:3, name:"Wiggles", color:"#ffff00"},

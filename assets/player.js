@@ -1,5 +1,5 @@
 const TARGETS = [
-  {id:0, name:"Bozo", color:[255,130,0]},
+  {id:0, name:"Bozo", color:[255,20,147]},
   {id:1, name:"Chuckles", color:[0,255,0]},
   {id:2, name:"Sprinkles", color:[0,200,255]},
   {id:3, name:"Wiggles", color:[255,255,0]},
