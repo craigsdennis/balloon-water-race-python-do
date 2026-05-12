@@ -290,45 +290,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: h
   background: rgba(255,158,74,0.2);
 }
 
-.debug-buttons .sql-btn {
-  border-color: #00ff88;
-  color: #00ff88;
-}
-.debug-buttons .sql-btn:hover {
-  background: rgba(0,255,136,0.2);
-}
-
-.sql-output {
-  margin-top: 10px;
-  padding: 8px;
-  background: rgba(0,0,0,0.6);
-  border-radius: 8px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.7rem;
-  max-height: 120px;
-  overflow-y: auto;
-  color: #00ff88;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-.sql-output.error {
-  color: #ff4444;
-}
-.sql-output table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.sql-output th, .sql-output td {
-  border: 1px solid rgba(255,255,255,0.2);
-  padding: 2px 6px;
-  text-align: left;
-  font-size: 0.65rem;
-}
-.sql-output th {
-  background: rgba(255,255,255,0.1);
-  color: #ffd700;
-}
-
 #countdown-overlay {
   position: absolute;
   inset: 0;

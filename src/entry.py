@@ -20,9 +20,9 @@ def default_state():
 
 def _get_row_value(row, col_name):
     """Extract a value from a SQLite row.
-    
+
     SQLite cursors converted via to_py() return plain Python dicts
-    with column names as string keys. Verified via /debug/sql endpoint.
+    with column names as string keys.
     """
     return row.get(col_name)
 
@@ -117,10 +117,6 @@ class BalloonGame(DurableObject):
         url = urlparse(request.url)
         path = url.path
 
-        # Handle debug HTTP request (not WebSocket)
-        if path == "/debug/sql":
-            return await self._debug_sql(request)
-
         pair = WebSocketPair.new()
         client, server = pair.object_values()
         self.ctx.acceptWebSocket(server)
@@ -131,68 +127,6 @@ class BalloonGame(DurableObject):
         state = await self._get_state()
         server.send(json.dumps({"type": "state", "data": state}))
         return Response(None, status=101, web_socket=client)
-
-    async def _debug_sql(self, request):
-        """HTTP endpoint that returns raw SQLite row shape introspection."""
-        result = {
-            "note": "This endpoint exists solely to figure out how to read SQLite cursor rows in Cloudflare Python Workers",
-            "errors": [],
-            "steps": []
-        }
-
-        try:
-            # Ensure table exists
-            self.ctx.storage.sql.exec("""
-                CREATE TABLE IF NOT EXISTS high_scores (
-                    name TEXT PRIMARY KEY,
-                    score INTEGER NOT NULL DEFAULT 0,
-                    last_updated INTEGER NOT NULL
-                )
-            """)
-            result["steps"].append("Table created (or already exists)")
-        except Exception as e:
-            result["errors"].append(f"CREATE TABLE: {type(e).__name__}: {str(e)}")
-
-        try:
-            # Insert test data
-            self.ctx.storage.sql.exec(
-                "INSERT OR REPLACE INTO high_scores (name, score, last_updated) VALUES (?, ?, ?)",
-                "__SHAPE_TEST__", 999, Date.now()
-            )
-            result["steps"].append("Test row inserted")
-        except Exception as e:
-            result["errors"].append(f"INSERT: {type(e).__name__}: {str(e)}")
-
-        try:
-            # Step 1: Get the cursor object type
-            cursor = self.ctx.storage.sql.exec("SELECT name, score FROM high_scores WHERE name = ?", "__SHAPE_TEST__")
-            result["cursor_type"] = str(type(cursor))
-            result["cursor_repr"] = repr(cursor)[:500]
-            result["cursor_dir"] = [d for d in dir(cursor) if not d.startswith("_")]
-
-            # Step 2: Convert via js.Array.from(cursor)
-            js_array = getattr(js.Array, 'from')(cursor)
-            result["js_array_type"] = str(type(js_array))
-            result["js_array_repr"] = repr(js_array)[:500]
-            result["js_array_len"] = len(js_array) if hasattr(js_array, '__len__') else "no len()"
-
-            # Step 3: Convert to Python via to_py()
-            py_rows = js_array.to_py()
-            result["py_rows_type"] = str(type(py_rows))
-            result["py_rows_repr"] = repr(py_rows)[:500]
-            result["py_rows_len"] = len(py_rows) if hasattr(py_rows, '__len__') else "no len()"
-
-            # Step 4: Inspect the first row
-            if py_rows and len(py_rows) > 0:
-                row = py_rows[0]
-                result["row"] = {"type": str(type(row)), "repr": repr(row)[:200], "keys": list(row.keys())}
-            else:
-                result["row"] = None
-
-        except Exception as e:
-            result["errors"].append(f"Cursor inspection: {type(e).__name__}: {str(e)}")
-
-        return Response.json(result)
 
     async def webSocketMessage(self, ws, message):
         sid = ws.deserializeAttachment()
@@ -289,64 +223,6 @@ class BalloonGame(DurableObject):
                 else:
                     await self._save_state(state)
                     await self._broadcast_state()
-
-        elif action == "diagnostic":
-            diag = {"tables": {}, "errors": []}
-            
-            try:
-                self.ctx.storage.sql.exec("""
-                    CREATE TABLE IF NOT EXISTS high_scores (
-                        name TEXT PRIMARY KEY,
-                        score INTEGER NOT NULL DEFAULT 0,
-                        last_updated INTEGER NOT NULL
-                    )
-                """)
-            except Exception as e:
-                diag["errors"].append(f"Create table: {type(e).__name__}: {str(e)}")
-
-            try:
-                rows = _sql_rows(
-                    self.ctx.storage.sql.exec(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name='high_scores'"
-                    )
-                )
-                if rows:
-                    val = _get_row_value(rows[0], "name")
-                    diag["tables"]["exists"] = [str(val)] if val else []
-                else:
-                    diag["tables"]["exists"] = []
-            except Exception as e:
-                diag["errors"].append(f"Table check: {type(e).__name__}: {str(e)}")
-
-            try:
-                rows = _sql_rows(
-                    self.ctx.storage.sql.exec("SELECT COUNT(*) FROM high_scores")
-                )
-                if rows:
-                    val = _get_row_value(rows[0], "COUNT(*)")
-                    diag["tables"]["count"] = int(val) if val else 0
-            except Exception as e:
-                diag["errors"].append(f"Count: {type(e).__name__}: {str(e)}")
-
-            try:
-                rows = _sql_rows(
-                    self.ctx.storage.sql.exec(
-                        "SELECT name, score FROM high_scores ORDER BY score DESC"
-                    )
-                )
-                result_rows = []
-                for row in rows:
-                    name_val = _get_row_value(row, "name")
-                    score_val = _get_row_value(row, "score")
-                    result_rows.append({
-                        "name": str(name_val) if name_val else "?",
-                        "score": int(score_val) if score_val else 0
-                    })
-                diag["tables"]["rows"] = result_rows
-            except Exception as e:
-                diag["errors"].append(f"Select: {type(e).__name__}: {str(e)}")
-
-            ws.send(json.dumps({"type": "diagnostic", "data": diag}))
 
     async def webSocketClose(self, ws, code, reason, wasClean):
         sid = ws.deserializeAttachment()
@@ -465,12 +341,6 @@ class Default(WorkerEntrypoint):
     async def fetch(self, request):
         url = urlparse(request.url)
         path = url.path
-
-        # Debug endpoint: inspect SQLite cursor row shape
-        if path == "/debug/sql" and request.method == "GET":
-            # Use a fixed DO name so SQLite state persists between calls
-            stub = self.env.BALLOON_GAME.getByName("__debug_sql__")
-            return await stub.fetch(request)
 
         # Create a new game
         if path == "/create" and request.method == "POST":

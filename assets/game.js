@@ -93,9 +93,6 @@ ws.onmessage = (ev) => {
         });
       });
     }
-  } else if (msg.type === 'diagnostic') {
-    console.log('🔬 DIAGNOSTIC RAW:', msg.data);
-    displayDiagnostics(msg.data);
   }
 };
 
@@ -646,73 +643,4 @@ function rapidFireAll() {
     ws.send(JSON.stringify({action: 'shoot', clown_id: target}));
   }, 50);
   setTimeout(() => clearInterval(interval), 3000);
-}
-
-// ==================== SQL DIAGNOSTICS ====================
-function runDiagnostics() {
-  const output = document.getElementById('sql-output');
-  if (output) {
-    output.textContent = 'Running diagnostics...';
-    output.classList.remove('error');
-  }
-  ws.send(JSON.stringify({action: 'diagnostic'}));
-}
-
-function displayDiagnostics(data) {
-  const output = document.getElementById('sql-output');
-  if (!output) return;
-
-  let html = '';
-
-  if (data.test_query) {
-    html += `SQL Test: ${data.test_query} ✅\n`;
-  }
-
-  if (data.errors && data.errors.length > 0) {
-    output.classList.add('error');
-    html += '\nERRORS:\n';
-    data.errors.forEach(e => {
-      html += `  ❌ ${e}\n`;
-    });
-  } else {
-    output.classList.remove('error');
-  }
-
-  const tables = data.tables || {};
-  if (tables.exists) {
-    html += `Tables: ${tables.exists.join(', ') || 'none'}\n`;
-  }
-  if (typeof tables.count === 'number') {
-    html += `Row count: ${tables.count}\n`;
-  }
-
-  if (tables.rows && tables.rows.length > 0) {
-    html += '\nhigh_scores table:\n';
-    html += 'NAME'.padEnd(14) + 'SCORE'.padStart(8) + '\n';
-    html += '-'.repeat(24) + '\n';
-    tables.rows.forEach(r => {
-      html += r.name.toString().substring(0, 12).padEnd(14) + r.score.toString().padStart(8) + '\n';
-    });
-  } else {
-    html += '\nNo rows in high_scores';
-  }
-
-  // Show row introspection debug for the first few rows
-  if (data.row_debug && data.row_debug.length > 0) {
-    html += '\n\n🔍 ROW DEBUG (first 3 rows):\n';
-    data.row_debug.forEach(rd => {
-      html += `\n--- ${rd.label} ---\n`;
-      html += `type: ${rd.type}\n`;
-      html += `repr: ${rd.repr}\n`;
-      html += 'access results:\n';
-      const access = rd.access || {};
-      Object.entries(access).forEach(([k, v]) => {
-        const valStr = typeof v === 'object' ? JSON.stringify(v) : String(v);
-        const short = valStr.length > 60 ? valStr.substring(0, 60) + '...' : valStr;
-        html += `  ${k}: ${short}\n`;
-      });
-    });
-  }
-
-  output.textContent = html;
 }
