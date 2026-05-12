@@ -3,7 +3,7 @@ const CLOWNS = [
   {id:1, name:"Chuckles", color:"#00ff00"},
   {id:2, name:"Sprinkles", color:"#00c8ff"},
   {id:3, name:"Wiggles", color:"#ffff00"},
-  {id:4, name:"Puddles", color:"#ff6400"}
+  {id:4, name:"Puddles", color:"#a020f0"}
 ];
 
 // Extract game ID from URL path: /game/<id>
@@ -24,6 +24,32 @@ const clownWobbles = CLOWNS.map(() => ({
   phase: Math.random() * Math.PI * 2,
   speed: 0.6 + Math.random() * 1.2
 }));
+
+// ==================== Audio: game-over buzzer ====================
+let gameAudioCtx = null;
+function playBuzzSound() {
+  try {
+    if (!gameAudioCtx) gameAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (gameAudioCtx.state === 'suspended') gameAudioCtx.resume();
+
+    const now = gameAudioCtx.currentTime;
+    [600, 400].forEach((freq, i) => {
+      const osc = gameAudioCtx.createOscillator();
+      const gain = gameAudioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, now + i * 0.15);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + i * 0.15 + 0.3);
+      gain.gain.setValueAtTime(0.2, now + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.35);
+      osc.connect(gain);
+      gain.connect(gameAudioCtx.destination);
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.4);
+    });
+  } catch (e) {
+    // Silently fail
+  }
+}
 
 // Canvas setup
 const canvas = document.getElementById('game-canvas');
@@ -49,6 +75,7 @@ ws.onmessage = (ev) => {
     }
     updatePlayerCount();
   } else if (msg.type === 'balloon_popped') {
+    playBuzzSound();
     const idx = msg.clown_id;
     explosions[idx] = {timer: 30}; // 0.5s of 💥
     spawnConfetti(getClownX(idx), getClownY() - 100, CLOWNS[idx].color);
@@ -80,26 +107,45 @@ function getClownY() {
   return canvas.height * 0.45;
 }
 
-function getClownWobble(i, fillPct) {
-  if (fillPct < 1/3) return 0;
+function getClownWobble(i, fill, maxFill) {
+  // Movement starts at 20 points, gets harder every 20 points after
+  if (fill < 20) return { x: 0, y: 0 };
 
   const w = clownWobbles[i];
   const t = Date.now() / 1000;
 
-  let maxWobble;
-  if (fillPct < 2/3) {
-    // First tier: small mechanical wobble, 0-8px
-    const tierProgress = (fillPct - 1/3) / (1/3);
-    maxWobble = 8 * tierProgress;
-  } else {
-    // Second tier: bigger wobble, 8-20px
-    const tierProgress = (fillPct - 2/3) / (1/3);
-    maxWobble = 8 + 12 * tierProgress;
+  // Determine tier: each 20-point bracket is a new tier
+  const bracketSize = 20;
+  const tier = Math.min(Math.floor((fill - 20) / bracketSize), 14);
+  const tierProgress = ((fill - 20) % bracketSize) / bracketSize;
+
+  // Speed: slow and trackable, slight increase each tier
+  // Base ~0.7 Hz, max ~1.8 Hz at tier 14 — still followable
+  const speedMult = 1 + tier * 0.08 + tierProgress * 0.08;
+
+  // Amplitude: grows with each tier, challenge is how FAR they move, not how fast
+  // Tier 0: 8px, Tier 14: ~65px
+  const ampY = 8 + tier * 4 + tierProgress * 4;
+
+  // Primary smooth sine wave — easy to track
+  const primaryY = Math.sin(t * w.speed * speedMult + w.phase) * ampY;
+
+  // Secondary slower wave — makes it not perfectly predictable but still smooth
+  const secondaryY = Math.sin(t * w.speed * speedMult * 0.6 + w.phase * 1.7) * (ampY * 0.4);
+
+  // Gentle "bob" at higher tiers — occasional extra dip/rise
+  let bobY = 0;
+  if (tier >= 4) {
+    const bobCycle = Math.sin(t * w.speed * speedMult * 0.35 + w.phase);
+    if (Math.abs(bobCycle) > 0.85) {
+      bobY = (bobCycle > 0 ? 1 : -1) * (Math.abs(bobCycle) - 0.85) * ampY * 1.5;
+    }
   }
 
-  const base = Math.sin(t * w.speed + w.phase) * maxWobble;
-  const jerk = Math.sin(t * w.speed * 3.7 + w.phase) * (maxWobble * 0.15);
-  return base + jerk;
+  return {
+    x: 0,
+    y: primaryY + secondaryY + bobY
+  };
 }
 
 function drawOrangeBalloon(ctx) {
@@ -315,14 +361,56 @@ function drawClown(c, x, y, fillPct, isPopped, shooterCount) {
   ctx.restore();
 }
 
+let previousPlayerCount = -1;
+let previousPlayerNames = new Set();
+
 function updatePlayerCount() {
   if (!gameState) return;
-  const playerCount = Object.keys(gameState.players || {}).length;
+  const players = gameState.players || {};
+  const playerCount = Object.keys(players).length;
+  const currentNames = new Set(Object.values(players).map(p => p.name));
+
   const countEl = document.getElementById('player-count');
-  if (countEl) {
-    countEl.textContent = `${playerCount} player${playerCount !== 1 ? 's' : ''} online`;
+  const countText = countEl ? countEl.querySelector('.count-text') : null;
+
+  if (countText) {
+    countText.textContent = `${playerCount} player${playerCount !== 1 ? 's' : ''} online`;
+
+    // Skip animations on the first state update (initial load)
+    if (previousPlayerCount >= 0) {
+      if (playerCount > previousPlayerCount) {
+        countText.classList.remove('pulse-leave');
+        countText.classList.add('pulse-join');
+        setTimeout(() => countText.classList.remove('pulse-join'), 500);
+
+        for (const name of currentNames) {
+          if (!previousPlayerNames.has(name)) {
+            showToast(name);
+          }
+        }
+      } else if (playerCount < previousPlayerCount) {
+        countText.classList.remove('pulse-join');
+        countText.classList.add('pulse-leave');
+        setTimeout(() => countText.classList.remove('pulse-leave'), 500);
+      }
+    }
   }
+
+  previousPlayerCount = playerCount;
+  previousPlayerNames = currentNames;
   updateScoreboard();
+}
+
+function showToast(name) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = `🎟️ ${name} joined!`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) toast.parentNode.removeChild(toast);
+  }, 3400);
 }
 
 function updateScoreboard() {
@@ -421,8 +509,8 @@ function draw() {
       const fillPct = clownData.popped ? 1.0 : (clownData.fill / clownData.max_fill);
       if (explosions[i] && explosions[i].timer <= 0) delete explosions[i];
       const shooterCount = activeShooters[i] || 0;
-      const wobbleY = getClownWobble(i, fillPct);
-      drawClown(c, getClownX(i), getClownY() + wobbleY, fillPct, clownData.popped, shooterCount);
+      const wobble = getClownWobble(i, clownData.fill, clownData.max_fill);
+      drawClown(c, getClownX(i) + wobble.x, getClownY() + wobble.y, fillPct, clownData.popped, shooterCount);
     });
   } else {
     CLOWNS.forEach((c, i) => {
@@ -460,6 +548,10 @@ function initQRCode() {
     colorLight: 'transparent',
     correctLevel: QRCode.CorrectLevel.H
   });
+
+  // Show game code so players can type it in if they already have the app installed
+  const codeDisplay = document.getElementById('game-code-display');
+  if (codeDisplay) codeDisplay.textContent = GAME_ID;
 }
 
 if (document.readyState === 'loading') {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Balloon Water Race</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/style.css?v=2">
+  <link rel="stylesheet" href="/style.css?v=4">
 </head>
 <body id="screen">
   <canvas id="game-canvas"></canvas>
@@ -17,7 +17,8 @@
   <div class="qr-panel">
     <div id="qrcode"></div>
     <p class="scan-text">Scan to play!</p>
-    <p id="player-count">0 players online</p>
+    <p id="game-code-display" class="game-code-text"></p>
+    <p id="player-count"><span class="live-dot"></span><span class="count-text">0 players online</span></p>
     <p class="start-hint">Press <kbd>SPACE</kbd> to Start</p>
   </div>
 
@@ -57,7 +58,9 @@
     <div id="sql-output" class="sql-output"></div>
   </div>
 
+  <div id="toast-container"></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="/game.js?v=21" defer></script>
+  <script src="/game.js?v=26" defer></script>
 </body>
 </html>

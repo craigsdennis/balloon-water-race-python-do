@@ -6,14 +6,36 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#ff7b00">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
   <title>Water Gun</title>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="/player-manifest.json?v=2">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/style.css?v=5">
+  <link rel="stylesheet" href="/style.css?v=6">
 </head>
 <body id="phone">
-  <div id="join-panel">
+  <!-- PWA cache-bust: force reload if loaded from cache -->
+  <script>
+    (function() {
+      if (window.navigator.standalone && performance.navigation && performance.navigation.type === 2) {
+        // Loaded from back/forward cache in standalone mode — force fresh
+        location.reload(true);
+      }
+    })();
+  </script>
+  <!-- Landing: enter game code (shown when no game ID in URL) -->
+  <div id="game-code-panel">
+    <h1>Water Gun</h1>
+    <p class="game-code-hint">Enter the game code from the screen</p>
+    <input type="text" id="game-code-input" placeholder="Game code" maxlength="12">
+    <button id="game-code-btn">Join Game 🔫</button>
+    <div id="recent-games"></div>
+  </div>
+
+  <div id="join-panel" class="hidden">
     <h1>Balloon Water Race</h1>
+    <p class="game-code-display" id="current-game-code"></p>
     <input type="text" id="name-input" placeholder="Your name" maxlength="12">
     <button id="join-btn">Start 🔫</button>
   </div>
@@ -28,6 +50,7 @@
     <div class="top-bar">
       <span id="player-name" class="name">Player</span>
       <span id="player-score" class="score">0</span>
+      <button id="switch-game-btn" class="switch-game-btn" title="Switch game">🔄</button>
     </div>
 
     <div id="target-bar">Waiting for game...</div>
@@ -45,12 +68,12 @@
       <span class="ios-install-icon">📲</span>
       <div class="ios-install-text">
         <strong>Install for the best experience</strong>
-        <span>Tap <span class="ios-share-icon">⬆️</span> then "Add to Home Screen"</span>
+        <span>Tap Safari's <b>Share</b> button <span class="ios-share-icon">⬆️</span> then "Add to Home Screen"</span>
       </div>
       <button id="ios-install-dismiss" class="ios-install-close">&times;</button>
     </div>
   </div>
 
-  <script src="/player.js?v=13"></script>
+  <script src="/player.js?v=21"></script>
 </body>
 </html>

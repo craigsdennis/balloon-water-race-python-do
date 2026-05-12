@@ -10,7 +10,7 @@ CLOWNS = [
     {"id": 1, "name": "Chuckles", "color": [0, 255, 0], "fill": 0, "max_fill": 300, "popped": False},
     {"id": 2, "name": "Sprinkles", "color": [0, 200, 255], "fill": 0, "max_fill": 300, "popped": False},
     {"id": 3, "name": "Wiggles", "color": [255, 255, 0], "fill": 0, "max_fill": 300, "popped": False},
-    {"id": 4, "name": "Puddles", "color": [255, 100, 0], "fill": 0, "max_fill": 300, "popped": False},
+    {"id": 4, "name": "Puddles", "color": [160, 32, 240], "fill": 0, "max_fill": 300, "popped": False},
 ]
 
 
@@ -362,6 +362,11 @@ class BalloonGame(DurableObject):
         sid = ws.deserializeAttachment()
         if sid and sid in self.sessions:
             del self.sessions[sid]
+        state = await self._get_state()
+        if sid in state.get("players", {}):
+            del state["players"][sid]
+            await self._save_state(state)
+            await self._broadcast_state()
 
     async def alarm(self, alarm_info=None):
         now = Date.now()
@@ -497,8 +502,8 @@ class Default(WorkerEntrypoint):
                 Request("https://placeholder/game.html", method="GET")
             )
 
-        # Serve player page
-        if path.startswith("/player/"):
+        # Serve player page (with or without game ID)
+        if path == "/player" or path.startswith("/player/"):
             return await self.env.ASSETS.fetch(
                 Request("https://placeholder/player.html", method="GET")
             )

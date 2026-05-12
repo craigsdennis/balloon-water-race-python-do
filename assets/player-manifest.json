@@ -1,0 +1,15 @@
+{
+  "name": "Water Gun",
+  "short_name": "Water Gun",
+  "start_url": "/player",
+  "display": "standalone",
+  "background_color": "#1a0b2e",
+  "theme_color": "#ff7b00",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
