@@ -1,5 +1,7 @@
 # Balloon Water Race
 
+[<img src="https://img.youtube.com/vi/cB9QzDCs6RQ/0.jpg">](https://youtu.be/cB9QzDCs6RQ "Run Python on Cloudflare's planetary network")
+
 A carnival water gun game built with **Python Workers** and **Durable Objects** on Cloudflare. Perfect for conference booths!
 
 ## How It Works

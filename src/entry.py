@@ -6,11 +6,11 @@ import json
 import uuid
 
 CLOWNS = [
-    {"id": 0, "name": "Bozo", "color": [255, 20, 147], "fill": 0, "max_fill": 300, "popped": False},
-    {"id": 1, "name": "Chuckles", "color": [0, 255, 0], "fill": 0, "max_fill": 300, "popped": False},
-    {"id": 2, "name": "Sprinkles", "color": [0, 200, 255], "fill": 0, "max_fill": 300, "popped": False},
-    {"id": 3, "name": "Wiggles", "color": [255, 255, 0], "fill": 0, "max_fill": 300, "popped": False},
-    {"id": 4, "name": "Puddles", "color": [160, 32, 240], "fill": 0, "max_fill": 300, "popped": False},
+    {"id": 0, "name": "Bozo", "color": [255, 20, 147], "fill": 0, "max_fill": 600, "popped": False},
+    {"id": 1, "name": "Chuckles", "color": [0, 255, 0], "fill": 0, "max_fill": 600, "popped": False},
+    {"id": 2, "name": "Sprinkles", "color": [0, 200, 255], "fill": 0, "max_fill": 600, "popped": False},
+    {"id": 3, "name": "Wiggles", "color": [255, 255, 0], "fill": 0, "max_fill": 600, "popped": False},
+    {"id": 4, "name": "Puddles", "color": [160, 32, 240], "fill": 0, "max_fill": 600, "popped": False},
 ]
 
 
